@@ -5,7 +5,7 @@ audit logs) to Cloud Tasks to be able to control the delivery rate to invoke the
 1. Use Eventarc to invoke a first Cloud Run which repost the event in Cloud Task
 2. Use Cloud logging sink, to PubSub, to Cloud Task (task buffer + URL Override)
 
-This [article](https://medium.com/google-cloud/cloud-logging-events-add-rate-limiting-to-preserve-resources-573abe080f51) 
+This [article]() 
 presents that repository and the problems it tackles*
 
 # Architecture schema
