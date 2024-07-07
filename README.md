@@ -1,22 +1,23 @@
 # Overview
 
-This repository presents 2 ways to implement an event driven architecture from events in Cloud Logging (typically, 
-audit logs) to Cloud Tasks to control the delivery rate and invoke endpoints (when quotas apply).
+This repository presents 3 different ways to implement an event driven architecture from events in Cloud Logging 
+(typically, audit logs) to Cloud Tasks to control the delivery rate and invoke endpoints (when quotas apply).
 1. Use Eventarc to invoke a Cloud Run service that reposts the event in Cloud Task
 2. Use Cloud logging sink to send events to PubSub and then to Cloud Tasks (using a task buffer and URL override).
+3. Hack the Eventarc configuration to mix the event capturing of Eventarc, and the simplicity of Cloud Task buffer
 
 This [article](https://medium.com/google-cloud/cloud-logging-events-add-rate-limiting-to-preserve-resources-573abe080f51) 
 presents that repository and the problems it addresses*
 
 # Architecture schema
 
-Here a diagram to visualise the architecture
+Here a diagram to visualise the architecture. In red, it's the hack option, a mix between both
 
 ![log-to-sequential-task.png](log-to-sequential-task.png)
 
 # Deployment
 
-To deploy the 2 options, you can run the `command.sh` files. The tracked events are job completion in BigQuery (_these 
+To deploy the 3 options, you can run the `command.sh` files. The tracked events are job completion in BigQuery (_these 
 are the only audit logs activated by default and do not require extra configuration for this demo_)
 
 The pros and cons are discussed in the Medium article
@@ -61,11 +62,20 @@ This endpoint is a simplified endpoint, but ideal for our purpose. In addition, 
 the no wrapper option, which de-encapsulate the standard PubSub message (base64 encoded payload) and publishes message 
 body (the log entry) in JSON format
 
+## The Eventarc hack option
+
+**This solution is not recommended for production use because it can break without any warning**
+
+The idea is to let Eventarc configuring Google Cloud for us and to update the created (by Eventarc) PubSub subscription
+to route the events to the Cloud Task URL override queue.
+
+To differentiate the 3 types of route, I created a new Cloud Task queue name.
+
 ## Test it
 
 To test it, simply create a query in BigQuery (for instance `SELECT 1`) and observe the logs of the `log-http`
-Cloud Run service. In the headers you should see the 2 Cloud Task origin, proving the correct propagation of the event
-across the 2 options.
+Cloud Run service. In the headers `X-Cloudtasks-Queuename` you can see the 3 Cloud Task origin, proving the correct 
+propagation of the event across the 3 options.
 
 # Licence
 

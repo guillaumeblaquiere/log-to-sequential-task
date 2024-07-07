@@ -84,6 +84,38 @@ gcloud eventarc triggers create event-to-task-trigger \
   --destination-run-region=us-central1 \
   --service-account="$(gcloud iam service-accounts list --filter="displayName='Eventarc Service Account'" --format='value(email)')"
 
+#####################################################################
+####                        Hack option                          ####
+#####################################################################
+
+# Deploy eventarc on audit log protoPayload.methodName='jobservice.jobcompleted' to invoke the event-to-task cloud run service
+gcloud eventarc triggers create event-to-task-trigger-hack \
+  --location=us-central1 \
+  --event-filters="type=google.cloud.audit.log.v1.written" \
+  --event-filters='methodName=jobservice.jobcompleted' \
+  --event-filters='serviceName=bigquery.googleapis.com' \
+  --destination-run-service=event-to-task \
+  --destination-run-region=us-central1 \
+  --service-account="$(gcloud iam service-accounts list --filter="displayName='Eventarc Service Account'" --format='value(email)')"
+
+# Create a Cloud task with URL override
+gcloud tasks queues create sequential-task-override-hack \
+  --http-uri-override=host:$(gcloud run services describe log-http --region=us-central1 --format='value(status.url)' | sed 's,http[s]*://,,g') \
+  --location=us-central1 --max-concurrent-dispatches=1
+
+#Grant the service account the cloud task creation permission
+gcloud tasks queues add-iam-policy-binding sequential-task-override-hack \
+  --location=us-central1 \
+  --role=roles/cloudtasks.enqueuer \
+  --member="serviceAccount:$(gcloud iam service-accounts list --filter="displayName='Create Task Service Account'" --format='value(email)')"
+
+# Update the eventarc automatically created subscription to use a different service account and endpoint
+gcloud pubsub subscriptions update \
+ "$(gcloud pubsub subscriptions list --format='value(name)' | grep "event-to-task-trigger-hack")" \
+ --push-endpoint="https://cloudtasks.googleapis.com/v2/$(gcloud tasks queues describe sequential-task-override-hack --location=us-central1 --format='value(name)')/tasks:buffer" \
+ --push-auth-service-account=$(gcloud iam service-accounts list --filter="displayName='Create Task Service Account'" --format='value(email)') \
+ --push-auth-token-audience="" \
+ --push-no-wrapper
 
 #####################################################################
 ####                       Simulate event                        ####
